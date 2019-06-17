@@ -1,21 +1,4 @@
 #!/usr/bin/env python
-#################################################################################
-# Copyright 2018 ROBOTIS CO., LTD.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#################################################################################
-
-# Authors: Gilbert #
 
 import rospy
 import os
@@ -45,15 +28,6 @@ pub_get_action = rospy.Publisher('get_action', Float32MultiArray, queue_size=5)
 result = Float32MultiArray()
 get_action = Float32MultiArray()
 
-# STATES = Float32MultiArray()
-# ACTIONS = Float32MultiArray()
-# DISCOUNTED_PREDICTION = Float32MultiArray()
-# ADVANTAGES = Float32MultiArray()
-# pub_states = rospy.Publisher('states', Float32MultiArray, queue_size=5)
-# pub_actions = rospy.Publisher('actions', Float32MultiArray, queue_size=5)
-# pub_discounted_prediction = rospy.Publisher('discounted_prediction', Float32MultiArray, queue_size=5)
-# pub_advantages = rospy.Publisher('advantages', Float32MultiArray, queue_size=5)
-# pub_whoami = rospy.Publisher('whoami', Int16, queue_size=5)
 
 class Agent:
     def __init__(self, action_size, state_size):
@@ -72,11 +46,6 @@ class Agent:
 
         self.t_max = 20
         self.t = 1
-
-    # def check_is_file_updated(self, which_network):
-    #     if which_network.data == self.network_number:
-    #         self.update_local_model()
-    #         print("network 1 is updated")
 
     def update_local_model(self):
         self.local_actor.load_weights(self.dirPath + "_actor.h5")
@@ -104,23 +73,12 @@ class Agent:
 
         advantages = discounted_prediction - values
 
-        # topic send(states, self.actions, discounted_prediction, advantrages)
-        # STATES.data = states.flatten()
-        # ACTIONS.data = np.asarray(self.actions).flatten()
-        # ADVANTAGES.data = advantages.tolist()
-        # DISCOUNTED_PREDICTION.data = discounted_prediction.tolist()
 
         STATES = states.flatten().tolist()
         ACTIONS = np.asarray(self.actions).flatten().tolist()
         ADVANTAGES = advantages.tolist()
         DISCOUNTED_PREDICTION = discounted_prediction.tolist() 
 
-        # pub_states.publish(STATES)
-        # pub_actions.publish(ACTIONS)
-        # pub_advantages.publish(ADVANTAGES)
-        # pub_discounted_prediction.publish(DISCOUNTED_PREDICTION)
-        # pub_whoami.publish(self.network_number)
-        
         print("TRAINED!!!!!!!!!!")
         js = json.dumps([STATES, ACTIONS, ADVANTAGES, DISCOUNTED_PREDICTION, self.network_number])
         self.sock.send(js)
@@ -148,8 +106,6 @@ class Agent:
 
         local_actor.load_weights(self.dirPath + "_actor.h5")
         local_critic.load_weights(self.dirPath + "_critic.h5")
-        # local_actor.set_weights(self.actor.get_weights())
-        # local_critic.set_weights(self.critic.get_weights())
         
         local_actor.summary()
         local_critic.summary()
