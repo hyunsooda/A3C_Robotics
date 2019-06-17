@@ -19,6 +19,7 @@ import rospy
 import pyqtgraph as pg
 import sys
 import pickle
+import numpy as np
 from std_msgs.msg import Float32MultiArray, Float32
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -27,14 +28,15 @@ class Window(QMainWindow):
     def __init__(self):
         super(Window, self).__init__()
         self.setWindowTitle("Result")
-        self.setGeometry(50, 50, 600, 650)
+        self.setGeometry(50, 50, 600, 1000)
         self.graph_sub = rospy.Subscriber('result', Float32MultiArray, self.data)
         self.ep = []
-        self.data = []
+        self.data = np.array([])
         self.rewards = []
         self.x = []
         self.count = 1
         self.size_ep = 0
+        self.avgRewards = np.array([])
         load_data = False
 
         if load_data:
@@ -43,34 +45,45 @@ class Window(QMainWindow):
         self.plot()
 
     def data(self, data):
-        self.data.append(data.data[0])
+        #self.data.append(data.data[0])
+        rospy.loginfo('%s %s', data.data[0], data.data[1])
+        self.data = np.append(self.data, data.data[0])
         self.ep.append(self.size_ep + self.count)
         self.count += 1
         self.rewards.append(data.data[1])
-
+        self.avgRewards = np.append(self.avgRewards, np.mean(self.data))
 
     def plot(self):
         self.qValuePlt = pg.PlotWidget(self, title="Average max Q-value")
-        self.qValuePlt.move(0, 320)
+        self.qValuePlt.move(0, 320 * 2)
         self.qValuePlt.resize(600, 300)
         self.timer1 = pg.QtCore.QTimer()
         self.timer1.timeout.connect(self.update)
         self.timer1.start(200)
 
-        self.rewardsPlt = pg.PlotWidget(self, title="Total reward")
+        self.rewardsPlt = pg.PlotWidget(self, title="avg reward")
         self.rewardsPlt.move(0, 10)
         self.rewardsPlt.resize(600, 300)
-
         self.timer2 = pg.QtCore.QTimer()
         self.timer2.timeout.connect(self.update)
         self.timer2.start(100)
+
+        self.avgRewardsPlt = pg.PlotWidget(self, title="Total reward")
+        self.avgRewardsPlt.move(0, 320)
+        self.avgRewardsPlt.resize(600, 300)
+        self.timer3 = pg.QtCore.QTimer()
+        self.timer3.timeout.connect(self.update)
+        self.timer3.start(100)
 
         self.show()
 
     def update(self):
         self.rewardsPlt.showGrid(x=True, y=True)
         self.qValuePlt.showGrid(x=True, y=True)
-        self.rewardsPlt.plot(self.ep, self.data, pen=(255, 0, 0))
+        self.avgRewardsPlt.showGrid(x=True, y=True)
+
+        self.rewardsPlt.plot(self.ep, self.data.asarray(), pen=(255, 0, 0))
+        self.avgRewardsPlt.plot(self.ep, self.avgRewards.asarray(), pen=(255, 0, 0))
         self.save_data([self.ep, self.data])
         self.qValuePlt.plot(self.ep, self.rewards, pen=(0, 255, 0))
 

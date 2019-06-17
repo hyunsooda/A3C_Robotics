@@ -176,7 +176,7 @@ class Agent(threading.Thread):
         self.thread_num = thread_num
 
         self.t_max = 20
-        self.t = 0
+        self.t = 1
 
     def discounted_prediction(self, rewards, done):
         discounted_prediction = np.zeros_like(rewards)

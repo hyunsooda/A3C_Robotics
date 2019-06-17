@@ -1,0 +1,7 @@
+<launch>
+  <arg name="stage" default="1"/>
+  <arg name="network" default="2"/>
+  <param name="stage_number"  value="$(arg stage)"/>
+  <param name="network_number"  value="$(arg network)"/>
+  <node pkg="turtlebot3_dqn" type="turtlebot3_a3c_local" name="turtlebot3_a3c_local1" output="screen" />
+</launch>

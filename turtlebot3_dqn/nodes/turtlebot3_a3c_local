@@ -1,0 +1,223 @@
+#!/usr/bin/env python
+#################################################################################
+# Copyright 2018 ROBOTIS CO., LTD.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#################################################################################
+
+# Authors: Gilbert #
+
+import rospy
+import os
+import json
+import numpy as np
+import random
+import time
+import sys
+import threading
+import socket
+import json
+from multiprocessing import Process
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+from collections import deque
+from std_msgs.msg import Float32MultiArray, Float32, Int16, Bool
+from src.turtlebot3_dqn.environment_stage_1 import Env
+from keras.models import Sequential, load_model
+from keras.optimizers import RMSprop
+from keras.layers import Dense, Dropout, Activation, Input 
+from keras.models import Model
+from keras import backend as K
+
+EPISODES = 3000
+rospy.init_node('turtlebot3_a3c_local')
+pub_result = rospy.Publisher('result', Float32MultiArray, queue_size=5)
+pub_get_action = rospy.Publisher('get_action', Float32MultiArray, queue_size=5)
+result = Float32MultiArray()
+get_action = Float32MultiArray()
+
+# STATES = Float32MultiArray()
+# ACTIONS = Float32MultiArray()
+# DISCOUNTED_PREDICTION = Float32MultiArray()
+# ADVANTAGES = Float32MultiArray()
+# pub_states = rospy.Publisher('states', Float32MultiArray, queue_size=5)
+# pub_actions = rospy.Publisher('actions', Float32MultiArray, queue_size=5)
+# pub_discounted_prediction = rospy.Publisher('discounted_prediction', Float32MultiArray, queue_size=5)
+# pub_advantages = rospy.Publisher('advantages', Float32MultiArray, queue_size=5)
+# pub_whoami = rospy.Publisher('whoami', Int16, queue_size=5)
+
+class Agent:
+    def __init__(self, action_size, state_size):
+        self.action_size = action_size
+        self.state_size = state_size
+        self.dirPath = os.path.dirname(os.path.realpath(__file__))
+        self.dirPath = self.dirPath.replace('turtlebot3_dqn/nodes', 'turtlebot3_dqn/save_model/stage_1_')
+        self.discount_factor = 0.99
+        self.states, self.actions, self.rewards = [], [], []
+        self.local_actor, self.local_critic = self.build_local_model()
+        self.network_number = rospy.get_param("network_number")
+        self.model_name = "goal" + str(self.network_number)
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect(('127.0.0.1', 5541))
+
+        self.t_max = 20
+        self.t = 1
+
+    # def check_is_file_updated(self, which_network):
+    #     if which_network.data == self.network_number:
+    #         self.update_local_model()
+    #         print("network 1 is updated")
+
+    def update_local_model(self):
+        self.local_actor.load_weights(self.dirPath + "_actor.h5")
+        self.local_critic.load_weights(self.dirPath + "_critic.h5")
+
+    def saveModel(self):
+        self.local_actor.save_weights(self.dirPath + "_actor.h5")
+        self.local_critic.save_weights(self.dirPath + "_critic.h5")
+
+    def discounted_prediction(self, rewards, done):
+        discounted_prediction = np.zeros_like(rewards)
+        running_add = 0
+
+        for t in reversed(range(0, len(rewards))):
+            running_add = running_add * self.discount_factor + rewards[t]
+            discounted_prediction[t] = running_add
+        return discounted_prediction
+
+    def train_model(self, done):
+        discounted_prediction = self.discounted_prediction(self.rewards, done)
+
+        states = np.asarray(self.states)
+        values = self.local_critic.predict(states)
+        values = np.reshape(values, len(values))
+
+        advantages = discounted_prediction - values
+
+        # topic send(states, self.actions, discounted_prediction, advantrages)
+        # STATES.data = states.flatten()
+        # ACTIONS.data = np.asarray(self.actions).flatten()
+        # ADVANTAGES.data = advantages.tolist()
+        # DISCOUNTED_PREDICTION.data = discounted_prediction.tolist()
+
+        STATES = states.flatten().tolist()
+        ACTIONS = np.asarray(self.actions).flatten().tolist()
+        ADVANTAGES = advantages.tolist()
+        DISCOUNTED_PREDICTION = discounted_prediction.tolist() 
+
+        # pub_states.publish(STATES)
+        # pub_actions.publish(ACTIONS)
+        # pub_advantages.publish(ADVANTAGES)
+        # pub_discounted_prediction.publish(DISCOUNTED_PREDICTION)
+        # pub_whoami.publish(self.network_number)
+        
+        print("TRAINED!!!!!!!!!!")
+        js = json.dumps([STATES, ACTIONS, ADVANTAGES, DISCOUNTED_PREDICTION, self.network_number])
+        self.sock.send(js)
+        num = self.sock.recv(1024) # do nothing but just for blocking 
+        self.update_local_model()
+        print("network ", num, "is updated")
+
+        self.states, self.actions, self.rewards = [], [], []
+
+    def build_local_model(self):
+        input = Input(shape=(self.state_size,))
+        dropout = 0.2
+        fc = Dense(64, activation='relu', kernel_initializer='lecun_uniform')(input)
+        fc = Dense(64, activation='relu', kernel_initializer='lecun_uniform')(fc)
+        fc = Dropout(dropout)(fc)
+        
+        policy = Dense(self.action_size, activation='softmax')(fc)
+        value = Dense(1, activation='linear')(fc)
+
+        local_actor = Model(inputs=input, outputs=policy)
+        local_critic = Model(inputs=input, outputs=value)
+
+        local_actor._make_predict_function()
+        local_critic._make_predict_function()
+
+        local_actor.load_weights(self.dirPath + "_actor.h5")
+        local_critic.load_weights(self.dirPath + "_critic.h5")
+        # local_actor.set_weights(self.actor.get_weights())
+        # local_critic.set_weights(self.critic.get_weights())
+        
+        local_actor.summary()
+        local_critic.summary()
+
+        return local_actor, local_critic
+        
+    def getAction(self, state):
+        # print("actor")
+        # print(state.reshape(1, len(state)))
+        policy = self.local_actor.predict(state.reshape(1, len(state)))[0]
+        action_index = np.random.choice(self.action_size, 1, p=policy)[0]
+        return action_index, policy
+
+    def append_sample(self, state, action, reward):
+        self.states.append(state)
+        act = np.zeros(self.action_size)
+        act[action] = 1
+        self.actions.append(act)
+        self.rewards.append(reward)
+
+    def run(self):
+        env = Env(self.action_size, model_name=self.model_name)
+
+        scores, episodes = [], []
+        global_step = 0
+        start_time = time.time()
+
+        for e in range(0, EPISODES):
+            done = False
+            state = env.reset()
+            score = 0
+            print("episode : ", e)
+            for t in range(6000):
+                action, policy = self.getAction(state)
+
+                next_state, reward, done = env.step(action)
+
+                self.append_sample(state, action, reward)
+
+                if self.t >= self.t_max or done:
+                    self.train_model(done)
+                    self.t = 1
+
+                self.t += 1
+                score += reward
+                state = next_state
+                get_action.data = [action, score, reward]
+                pub_get_action.publish(get_action)
+            
+                if t >= 500:
+                    rospy.loginfo("Time out!!")
+                    done = True
+
+                if done:
+                    result.data = [score, np.max(policy)]
+                    pub_result.publish(result)
+                    scores.append(score)
+                    episodes.append(e)
+                    m, s = divmod(int(time.time() - start_time), 60)
+                    h, m = divmod(m, 60)
+
+                    rospy.loginfo('Ep: %d score: %.2f time: %d:%02d:%02d',
+                                e, score,  h, m, s)
+                    break
+
+                global_step += 1
+
+if __name__ == '__main__':
+    local_agent = Agent(action_size=5, state_size=26)
+    local_agent.run()
+   

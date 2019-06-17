@@ -26,10 +26,11 @@ from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Pose
 
 class Respawn():
-    def __init__(self):
+    def __init__(self, model_name):
         self.modelPath = os.path.dirname(os.path.realpath(__file__))
         self.modelPath = self.modelPath.replace('turtlebot3_machine_learning/turtlebot3_dqn/src/turtlebot3_dqn',
                                                 'turtlebot3_simulations/turtlebot3_gazebo/models/turtlebot3_square/goal_box/model.sdf')
+ 
         self.f = open(self.modelPath, 'r')
         self.model = self.f.read()
         self.stage = rospy.get_param('/stage_number')
@@ -38,7 +39,7 @@ class Respawn():
         self.init_goal_y = 0.0
         self.goal_position.position.x = self.init_goal_x
         self.goal_position.position.y = self.init_goal_y
-        self.modelName = 'goal'
+        self.modelName = model_name #'goal'
         self.obstacle_1 = 0.6, 0.6
         self.obstacle_2 = 0.6, -0.6
         self.obstacle_3 = -0.6, 0.6
@@ -53,6 +54,7 @@ class Respawn():
     def checkModel(self, model):
         self.check_model = False
         for i in range(len(model.name)):
+            # print(model.name[i])
             if model.name[i] == "goal":
                 self.check_model = True
 
@@ -61,7 +63,7 @@ class Respawn():
             if not self.check_model:
                 rospy.wait_for_service('gazebo/spawn_sdf_model')
                 spawn_model_prox = rospy.ServiceProxy('gazebo/spawn_sdf_model', SpawnModel)
-                spawn_model_prox(self.modelName, self.model, 'robotos_name_space', self.goal_position, "world")
+                spawn_model_prox("goal", self.model, 'robotos_name_space', self.goal_position, "world")
                 rospy.loginfo("Goal position : %.1f, %.1f", self.goal_position.position.x,
                               self.goal_position.position.y)
                 break
@@ -73,7 +75,7 @@ class Respawn():
             if self.check_model:
                 rospy.wait_for_service('gazebo/delete_model')
                 del_model_prox = rospy.ServiceProxy('gazebo/delete_model', DeleteModel)
-                del_model_prox(self.modelName)
+                del_model_prox("goal")
                 break
             else:
                 pass
