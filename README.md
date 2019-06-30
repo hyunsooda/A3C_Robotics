@@ -1,11 +1,8 @@
-# A3C Algorithm for Self-Driving
+# Design and Implementation of A3C Algorithm for Self-Driving in ROS Platform
 
 
 <ul>
-  <li> <p>1st  - Hyun-soo Shin { Reinforcment Learning + Deep Learning } </p></li>  
-  <li> <p>2nd - Kyu-re Kim { Image Processing } </p></li>  
-  <li> <p>3rd  - Sun-ik Hwang { Image Processing } </p></li>  
-  <li> <p>4th  - Jung-han Bae { Making a variety of maps for simulation } </p></li>  
+
 </ul>
 
 ## This project is opensource-extended version
