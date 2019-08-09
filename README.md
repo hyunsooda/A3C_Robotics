@@ -16,4 +16,4 @@
 ## What I did some tasks.
 - Caught a bug
 - Enhanced environment algorithm 
-- Changed learning model algorithm from DQN to A3C
+- Change learning model algorithm from DQN to A3C
