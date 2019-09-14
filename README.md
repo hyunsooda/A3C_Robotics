@@ -13,7 +13,7 @@
 ## This project is opensource-extended version
 - Forked from (https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning)
 
-## What I did some tasks.
+## What tasks I did on origin project.
 - Caught a bug
 - Enhanced environment algorithm 
 - Change learning model algorithm from DQN to A3C
